@@ -49,13 +49,15 @@ func define(word string) string {
 	resp, err := http.Get(request_url)
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "API request failed: %v", err)
+		fmt.Fprintf(os.Stderr, "API request failed: %v\n", err)
+		os.Exit(74)
 	}
 
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "API request failed: %v", err)
+		fmt.Fprintf(os.Stderr, "API request failed: %v\n", err)
+		os.Exit(74)
 	}
 
 	// Parse JSON
@@ -63,7 +65,8 @@ func define(word string) string {
 	err = json.Unmarshal(body, &words)
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "JSON parse error: %v", err)
+		fmt.Fprintf(os.Stderr, "JSON parse error: %v\n", err)
+		os.Exit(65) // :shrug:
 	}
 
 	var buffer string

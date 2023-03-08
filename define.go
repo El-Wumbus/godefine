@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -41,8 +42,15 @@ type Meanings struct {
 	Antonyms     []string      `json:"antonyms"`
 }
 
+type NoWord struct {
+	Title      string `json:"title"`
+	Message    string `json:"message"`
+	Resolution string `json:"resolution"`
+}
+
 func define(word string) string {
-	lword := strings.ToLower(word)
+	// Lowercase and encode the word to fefine
+	lword := url.QueryEscape(strings.ToLower(word))
 
 	// Make the API request
 	request_url := fmt.Sprintf("https://api.dictionaryapi.dev/api/v2/entries/en/%v", lword)
@@ -53,6 +61,7 @@ func define(word string) string {
 		os.Exit(74)
 	}
 
+	// Get the request body
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -65,21 +74,27 @@ func define(word string) string {
 	err = json.Unmarshal(body, &words)
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "JSON parse error: %v\n", err)
-		os.Exit(65) // :shrug:
+		var no_word NoWord
+		// Try to parse the JSON again to check if the word wasn't found
+		err = json.Unmarshal(body, &no_word)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "JSON parse error: %v\n", err)
+			os.Exit(65) // :shrug:
+		}
+		return fmt.Sprintf("'%v' was not found: %v", word, no_word.Resolution)
 	}
 
 	var buffer string
 	defined_word := words[0]
 	for i := 0; i < len(defined_word.Meanings); i++ {
 		meaning := defined_word.Meanings[i]
-		buffer += fmt.Sprintf("(%v) %v\n", meaning.PartOfSpeech, meaning.Definitions[0].Definition)
+		buffer += fmt.Sprintf("[%v] %v\n", meaning.PartOfSpeech, meaning.Definitions[0].Definition)
 		example := meaning.Definitions[0].Example
 		if example != "" {
-			buffer += fmt.Sprintf("    Example: '%v'\n", example)
+			buffer += fmt.Sprintf("\tExample: '%v'\n", example)
 		}
 	}
-	return fmt.Sprintf("Definitions for '%v':\n%v", word, buffer)
+	return fmt.Sprintf("%v:\n%v", word, strings.TrimSpace(buffer))
 }
 
 func main() {
